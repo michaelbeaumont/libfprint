@@ -715,7 +715,9 @@ static gboolean check_data_exchange_dbg(struct vfs_dev_t *vdev, const struct dat
 			       dex->rsp_length, vdev->buffer_length);
 		}
 
+		#ifdef ENABLE_DEBUG_LOGGING
 		print_hex(vdev->buffer, vdev->buffer_length);
+		#endif
 	}
 
 	return TRUE;
@@ -1183,6 +1185,7 @@ static int translate_interrupt(unsigned char *interrupt, int interrupt_size)
 	const unsigned char scan_failed_too_short2_interrupt[] = { 0x03, 0x61, 0x07, 0x00, 0x41 };
 	const unsigned char scan_failed_too_fast_interrupt[] = { 0x03, 0x20, 0x07, 0x00, 0x00 };
 	const unsigned char finger_authenticated_interrupt[] = { 0x03, 0x00, 0x01, 0x00, 0xDB }; // 0x01 is the finger id
+	const unsigned char unknown_interrupt[] = { 0x04, 0x00, 0x01, 0x00, 0xDB }; // 0x01 is the finger id
 
 	if (sizeof(waiting_finger) == interrupt_size &&
 		memcmp(waiting_finger, interrupt, interrupt_size) == 0) {
@@ -1239,10 +1242,20 @@ static int translate_interrupt(unsigned char *interrupt, int interrupt_size)
 	}
 
 	if (sizeof(finger_authenticated_interrupt) == interrupt_size &&
-		memcmp(finger_authenticated_interrupt, interrupt, 2) == 0 &&
-		memcmp(&finger_authenticated_interrupt[3], &interrupt[3], 2) == 0) {
-        fp_info("Authenticated finger id %d", interrupt[2]);
+	    memcmp(finger_authenticated_interrupt, interrupt, 2) == 0 &&
+	    memcmp(&finger_authenticated_interrupt[3], &interrupt[3], 2) == 0) {
+                fp_info("Authenticated finger id %d", interrupt[2]);
 		return VFS_SCAN_AUTHENTICATED;
+	}
+
+	if (sizeof(unknown_interrupt) == interrupt_size &&
+	    memcmp(unknown_interrupt, interrupt, 2) == 0 &&
+	    memcmp(&unknown_interrupt[3], &interrupt[3], 2) == 0) {
+                fp_info("Known unknown interrupt for id %d", interrupt[2]);
+#ifdef ENABLE_DEBUG_LOGGING
+	        print_hex(interrupt, interrupt_size);
+#endif
+	        return VFS_SCAN_UNKNOWN;
 	}
 
 	fp_err("Interrupt not tracked, please report!");
@@ -1916,16 +1929,16 @@ static int dev_change_state(struct fp_img_dev *idev, enum fp_imgdev_state state)
 {
 	switch(state) {
 		case IMGDEV_STATE_INACTIVE:
-			printf("State change: IMGDEV_STATE_INACTIVE\n");
+			fp_info("State change: IMGDEV_STATE_INACTIVE\n");
 			break;
 		case IMGDEV_STATE_AWAIT_FINGER_ON:
-			printf("State change: IMGDEV_STATE_AWAIT_FINGER_ON\n");
+			fp_info("State change: IMGDEV_STATE_AWAIT_FINGER_ON\n");
 			break;
 		case IMGDEV_STATE_CAPTURE:
-			printf("State change: IMGDEV_STATE_CAPTURE\n");
+			fp_info("State change: IMGDEV_STATE_CAPTURE\n");
 			break;
 		case IMGDEV_STATE_AWAIT_FINGER_OFF:
-			printf("State change: IMGDEV_STATE_AWAIT_FINGER_OFF\n");
+			fp_info("State change: IMGDEV_STATE_AWAIT_FINGER_OFF\n");
 			break;
 	}
 
